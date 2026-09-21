@@ -24,7 +24,16 @@ on:
     workflows: ["CI"]
     types: [completed]
     branches: [main]
+  # ⚠️ `force` קיים בשביל מקרה אחד: הקובץ המפורסם נתקע בזיהוי שגוי של
+  # אנטי-וירוס, והזיהוי צמוד ל-hash שלו ולא לתוכנו. האריזה דטרמיניסטית
+  # למעט `lastSync` שבקטלוג, ולכן ריצה כפויה מייצרת את אותה חבילה בדיוק
+  # עם hash חדש — וזה כל מה שדרוש כדי לצאת מהמצב.
   workflow_dispatch:
+    inputs:
+      force:
+        description: "לפרסם גם אם שום דבר לא השתנה"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -109,6 +118,14 @@ jobs:
         id: changed
         shell: bash
         run: |
+          # ⚠️ `inputs.force` ריק בכל אירוע שאינו `workflow_dispatch`, ולכן
+          # ההשוואה למחרוזת מכסה גם את הריצה היומית ואת `workflow_run`.
+          if [ "${{ inputs.force }}" = "true" ]; then
+            echo "פרסום כפוי — מדלגים על בדיקת השינויים"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           # ⚠️ שני תנאים, ולא רק המראה: כשמתפרסם exe חדש המראה אינה
           # משתנה, והשוואת המראה לבדה הייתה משאירה את החבילה עם בינארי
           # ישן לנצח — כלומר הטריגר `workflow_run` לא היה עושה כלום.
