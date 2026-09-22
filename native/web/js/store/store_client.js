@@ -18,11 +18,33 @@ import {absoluteUrl, resolveAssetNaming} from './net_headers.js';
 
 export const DEFAULT_BASE_URL = 'https://otzaria.org';
 
-/** כשל שמנוסח למשתמש. טיפוס נפרד כדי שהממשק יציג אותו כמו שהוא. */
+/**
+ * כשל שמנוסח למשתמש. טיפוס נפרד כדי שהממשק יציג אותו כמו שהוא.
+ *
+ * [status] ו-[unreachable] אינם למשתמש אלא לקורא האוטומטי: `pack_mirror`
+ * מבדיל לפיהם בין "האתר סגור כרגע" לבין "משהו שבור", ומחזיר קוד יציאה
+ * אחר לכל אחד מהם. ההודעה שמוצגת אינה משתנה בגללם.
+ */
 export class PluginStoreError extends Error {
-  constructor(message) {
+  constructor(message, {status = 0, unreachable = false} = {}) {
     super(message);
     this.name = 'PluginStoreError';
+    /** קוד ה-HTTP שחזר, או 0 כשלא חזרה תשובה כלל. */
+    this.status = status;
+    /** לא חזרה תשובה בכלל: ניתוק, timeout, DNS. */
+    this.unreachable = unreachable;
+  }
+
+  /**
+   * האתר אינו זמין כרגע — ולא קרה משהו שבור.
+   *
+   * ⚠️ otzaria.org מחזיר **503 בשבתות ובחגים**, וזה המצב השכיח שהדגל
+   * הזה נועד לו: ארבעה מששת הכשלים של הג'וב היומי בספטמבר 2026 היו
+   * בדיוק זה. 5xx הוא הצהרה של השרת שהוא לא זמין עכשיו, להבדיל מ-4xx
+   * שאומר שהבקשה עצמה שגויה — וזו הבחנה שכדאי לכבד.
+   */
+  get sourceClosed() {
+    return this.unreachable || (this.status >= 500 && this.status <= 599);
   }
 }
 
@@ -83,10 +105,12 @@ export class PluginStoreClient {
     try {
       response = await this.net.get(`${this.baseUrl}${path}`, this.timeoutMs);
     } catch (error) {
-      throw new PluginStoreError(S.domain.siteUnreachable(describeError(error)));
+      throw new PluginStoreError(S.domain.siteUnreachable(describeError(error)),
+                                 {unreachable: true});
     }
     if (response.status !== 200) {
-      throw new PluginStoreError(S.domain.loadFailed(what, response.status));
+      throw new PluginStoreError(S.domain.loadFailed(what, response.status),
+                                 {status: response.status});
     }
     try {
       return JSON.parse(response.body);
@@ -114,12 +138,13 @@ export class PluginStoreClient {
     } catch (error) {
       await this.#discard(partPath);
       throw new PluginStoreError(
-          S.domain.siteUnreachable(describeError(error)));
+          S.domain.siteUnreachable(describeError(error)), {unreachable: true});
     }
 
     if (result.status !== 200) {
       await this.#discard(partPath);
-      throw new PluginStoreError(S.domain.httpStatusFor(result.status, url));
+      throw new PluginStoreError(S.domain.httpStatusFor(result.status, url),
+                                 {status: result.status});
     }
 
     const {ext, originalName} = resolveAssetNaming(result, preferredExt);
