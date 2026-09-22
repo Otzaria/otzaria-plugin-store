@@ -21,9 +21,24 @@ import {fs, net} from './node_host.mjs';
 import {OtzariaReleaseClient} from '../web/js/store/otzaria_release_client.js';
 import {PluginMirrorStore} from '../web/js/store/mirror_store.js';
 import {PluginMirrorSync, SyncPhase} from '../web/js/store/mirror_sync.js';
-import {PluginStoreClient} from '../web/js/store/store_client.js';
+import {PluginStoreClient, PluginStoreError}
+  from '../web/js/store/store_client.js';
 
 const {join} = win32;
+
+/**
+ * [EXIT] קודי היציאה — נקראים ב-.github/workflows/bundle.yml.
+ *
+ * ⚠️ `sourceClosed` הוא 4 ולא 1, וזו כל הנקודה: otzaria.org מחזיר 503
+ * בשבתות ובחגים, והג'וב היומי נכשל שם באדום בלי שדבר נשבר. ארבעה מששת
+ * הכשלים בספטמבר 2026 היו זה. אתר שסגור לשבת אינו תקלה שצריך להתריע
+ * עליה — הריצה של מחר תעשה בדיוק את מה שזו עמדה לעשות.
+ *
+ * ⚠️ **רק 5xx וניתוק.** כשל אחר — 4xx, JSON פגום, קובץ שלא ירד — נשאר
+ * 1 ומפיל את הג'וב. הכיוון המסוכן כאן הוא לבלוע תקלה אמיתית ולהשאיר את
+ * החבילה תקועה על מראה ישנה בלי שאיש ידע.
+ */
+const EXIT = {sourceClosed: 4};
 
 const dataDir = process.argv[2];
 if (!dataDir) {
@@ -66,13 +81,22 @@ const sync = new PluginMirrorSync({
 
 // ── ההרצה ────────────────────────────────────────────────────────────────────
 const warnings = [];
-const result = await sync.sync({
-  appVersions: target.versions,
-  onProgress: ({phase, message}) => {
-    if (phase === SyncPhase.warning) warnings.push(message);
-    console.log(`  ${message}`);
-  },
-});
+let result;
+try {
+  result = await sync.sync({
+    appVersions: target.versions,
+    onProgress: ({phase, message}) => {
+      if (phase === SyncPhase.warning) warnings.push(message);
+      console.log(`  ${message}`);
+    },
+  });
+} catch (error) {
+  if (error instanceof PluginStoreError && error.sourceClosed) {
+    console.error(`אוצריא אינה זמינה כרגע: ${error.message}`);
+    process.exit(EXIT.sourceClosed);
+  }
+  throw error;
+}
 
 console.log('');
 console.log(`ירדו: ${result.fetched} | דולגו (כבר מעודכנים): ${result.skipped}`);

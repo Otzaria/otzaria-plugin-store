@@ -40,7 +40,8 @@ function run(...args) {
 
 /** קטלוג בצורה שהמראה מפיקה בפועל — עם חותמת זמן ועם מונים. */
 const catalog = ({lastSync = '2026-01-01T00:00:00Z', version = '1.0.0',
-                  downloads = 12, name = 'תוסף לדוגמה'} = {}) => ({
+                  downloads = 12, name = 'תוסף לדוגמה',
+                  updatedAt = '2026-01-01'} = {}) => ({
   lastSync,
   plugins: [{
     id: 'com.example.plugin',
@@ -48,6 +49,8 @@ const catalog = ({lastSync = '2026-01-01T00:00:00Z', version = '1.0.0',
     version,
     downloadCount: downloads,
     ratingAvg: 4.5,
+    updatedAt,
+    originalDate: updatedAt,
     file: 'plugins/com.example.plugin/plugin-1.0.otzplugin',
   }],
 });
@@ -100,6 +103,18 @@ describe('mirror_changed — מה שאינו נחשב שינוי', () => {
     await writeJson(at('c.json'), catalog({downloads: 12}));
     await writeJson(at('d.json'), catalog({downloads: 4137}));
     const result = await run(at('c.json'), at('d.json'), inventoryPath, plugins);
+    assert.equal(result.code, NOTHING_TO_PUBLISH, result.stdout + result.stderr);
+  });
+
+  it('תאריך העדכון זז לבדו — אין מה לפרסם', async () => {
+    // ⚠️ `/api/plugins` מחזיר ב-`updatedAt` את התאריך של היום ולא את
+    // תאריך העדכון האמיתי — נמדד ב-2026-09-21, כל 39 התוספים. בלי נטרול
+    // השדה הזה הקטלוג נבדל בכל יום, והחבילה פורסמה מחדש מדי יום: ‎109MB
+    // שאיש לא ביקש, ו-hash חדש שמאפס את מוניטין ההורדות של קובץ הרצה לא
+    // חתום. זה מה שהביא עליו זיהוי שגוי של Defender.
+    await writeJson(at('g.json'), catalog({updatedAt: '2026-09-20'}));
+    await writeJson(at('h.json'), catalog({updatedAt: '2026-09-21'}));
+    const result = await run(at('g.json'), at('h.json'), inventoryPath, plugins);
     assert.equal(result.code, NOTHING_TO_PUBLISH, result.stdout + result.stderr);
   });
 

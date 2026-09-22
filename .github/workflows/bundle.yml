@@ -17,14 +17,31 @@ name: Bundle
 on:
   # יומי ולא שבועי: הזיהוי זול (הזריעה + מטא-דאטה), והאריזה קורית רק
   # כשמשהו באמת זז. עדכון תוסף לא ימתין שבוע.
+  #
+  # ⚠️ **ראשון עד שישי** (`0-5`), בלי שבת: otzaria.org סגור בשבת ומחזיר
+  # 503, והג'וב נכשל שם באדום שבוע אחר שבוע בלי ששום דבר נשבר. ה-cron
+  # הוא ב-UTC, ו-03:00 UTC הם 05:00-06:00 בישראל — כלומר שבת ב-UTC היא
+  # שבת גם בשעון המקומי, ושישי כולו נשאר לפני כניסתה.
+  #
+  # חגים אינם ניתנים לביטוי ב-cron, כי הם זזים בלוח הלועזי. אותם מטפל
+  # קוד היציאה 4 של `pack_mirror` — ראו [EXIT] שם ואת השלב שקורא אותו.
   schedule:
-    - cron: "0 3 * * *"
+    - cron: "0 3 * * 0-5"
   # release חדש של החנות עצמה — ה-exe שבתוך החבילה התיישן. אירוע, לא סקר.
   workflow_run:
     workflows: ["CI"]
     types: [completed]
     branches: [main]
+  # ⚠️ `force` קיים בשביל מקרה אחד: הקובץ המפורסם נתקע בזיהוי שגוי של
+  # אנטי-וירוס, והזיהוי צמוד ל-hash שלו ולא לתוכנו. האריזה דטרמיניסטית
+  # למעט `lastSync` שבקטלוג, ולכן ריצה כפויה מייצרת את אותה חבילה בדיוק
+  # עם hash חדש — וזה כל מה שדרוש כדי לצאת מהמצב.
   workflow_dispatch:
+    inputs:
+      force:
+        description: "לפרסם גם אם שום דבר לא השתנה"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -102,13 +119,37 @@ jobs:
       # גרסת אוצריא, מה נחשב "לא השתנה" — נשארים במקום אחד, ואין כאן
       # מימוש שני שלהם שייפרד מהקוד ביום שאחד מהם ישתנה.
       - name: Build the mirror
+        id: mirror
         shell: bash
-        run: node native/tools/pack_mirror.mjs Data
+        run: |
+          # ⚠️ 4 = אוצריא סגורה כרגע (חג, או ניתוק חולף) — ראו [EXIT]
+          # ב-pack_mirror.mjs. זו אינה תקלה: הריצה של מחר תעשה בדיוק את
+          # מה שזו עמדה לעשות, והחבילה שפורסמה נשארת שלמה בינתיים. כל
+          # קוד יציאה אחר מפיל את הג'וב כרגיל.
+          set +e
+          node native/tools/pack_mirror.mjs Data
+          code=$?
+          set -e
+          if [ "$code" -eq 4 ]; then
+            echo "::warning::אוצריא אינה זמינה כרגע — הריצה מדלגת. החבילה שפורסמה נשארת כמות שהיא."
+            echo "closed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          exit "$code"
 
       - name: Is there anything to publish?
         id: changed
+        if: steps.mirror.outputs.closed != 'true'
         shell: bash
         run: |
+          # ⚠️ `inputs.force` ריק בכל אירוע שאינו `workflow_dispatch`, ולכן
+          # ההשוואה למחרוזת מכסה גם את הריצה היומית ואת `workflow_run`.
+          if [ "${{ inputs.force }}" = "true" ]; then
+            echo "פרסום כפוי — מדלגים על בדיקת השינויים"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           # ⚠️ שני תנאים, ולא רק המראה: כשמתפרסם exe חדש המראה אינה
           # משתנה, והשוואת המראה לבדה הייתה משאירה את החבילה עם בינארי
           # ישן לנצח — כלומר הטריגר `workflow_run` לא היה עושה כלום.
@@ -195,6 +236,7 @@ jobs:
           fi
 
       - name: Nothing changed
-        if: steps.changed.outputs.publish != 'true'
+        if: steps.mirror.outputs.closed != 'true' &&
+            steps.changed.outputs.publish != 'true'
         shell: bash
         run: echo "המראה זהה לזו שכבר פורסמה — לא פורסמה חבילה חדשה"
