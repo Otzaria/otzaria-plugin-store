@@ -204,4 +204,5 @@ node native/tools/extract_icons.mjs
 
 ## רישיון
 
-GPL-3.0 — ראו [LICENSE](LICENSE).
+Personal Use License 1.0 — ראו [LICENSE](LICENSE). גרסאות שפורסמו לפני
+המעבר לרישיון הזה נשארות תחת GPL-3.0 אצל מי שקיבל אותן.

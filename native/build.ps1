@@ -29,7 +29,8 @@ $srcDir = Join-Path $nativeRoot 'src'
 $resDir = Join-Path $nativeRoot 'res'
 $outDir = Join-Path $nativeRoot 'build'
 
-# שם הקובץ שהמשתמש רואה — חייב להתאים ל-`OriginalFilename` שב-app.rc.
+# שם הקובץ שעל הדיסק — חייב להתאים ל-`kSlimExeName` שב-main.cpp. אינו
+# `OriginalFilename` שב-app.rc: ההוא הוא השם הלטיני שעל ה-release.
 #
 # ⚠️ **בלי "אוצריא" בשם**, בכוונה: הזיהוי של התקנת אוצריא עובד לפי השם,
 # ו-exe בשם שמכיל "אוצריא" שיושב ב-`C:\אוצריא` היה נבחר שם כהתקנה של

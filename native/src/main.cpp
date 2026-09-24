@@ -277,7 +277,8 @@ bool ReadDataFile(const std::wstring& relative, std::vector<uint8_t>& out) {
 // אינו נושא מטען, ו-[HasOverlay] חוזר `false` אחרי קריאה של 96 בייט.
 
 // שם קובץ ההרצה הרזה שנכתב לצד החבילה. חייב להתאים ל-`$appFileName`
-// שב-native/build.ps1 ול-`OriginalFilename` שב-app.rc — זה אותו קובץ.
+// שב-native/build.ps1 — זה אותו קובץ. (`OriginalFilename` שב-app.rc הוא
+// השם הלטיני שעל ה-release, ולא זה.)
 constexpr wchar_t kSlimExeName[] = L"חנות התוספים.exe";
 
 // מריץ את הפריסה אם צריך. `true` = התוכנה סיימה את תפקידה בהרצה הזאת
