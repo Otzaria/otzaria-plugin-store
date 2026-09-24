@@ -33,15 +33,22 @@ BEGIN
         // 040d = עברית, 04b0 = Unicode. שורת השפה הזאת היא מה שמאפשר
         // ל-Explorer להציג את השדות בעברית בלי להשתמש בקוד-עמוד.
         BLOCK "040d04b0"
+        //
+        // ⚠️ עברית רק כ-`L"\x05d7"`: בלי ה-L, rc.exe קורא את `\05` כ-escape
+        // אוקטלי (התו 0x05) ואת `d7` כטקסט — והשדות יוצאים זבל.
         BEGIN
-            VALUE "CompanyName", "\05d0\05d5\05e6\05e8\05d9\05d0"
-            VALUE "FileDescription", "\05d7\05e0\05d5\05ea \05d4\05ea\05d5\05e1\05e4\05d9\05dd \05e9\05dc \05d0\05d5\05e6\05e8\05d9\05d0"
+            VALUE "CompanyName", L"\x05d0\x05d5\x05e6\x05e8\x05d9\x05d0"
+            VALUE "FileDescription", L"\x05d7\x05e0\x05d5\x05ea \x05d4\x05ea\x05d5\x05e1\x05e4\x05d9\x05dd \x05e9\x05dc \x05d0\x05d5\x05e6\x05e8\x05d9\x05d0"
             VALUE "FileVersion", APP_VERSION_A
             VALUE "InternalName", "otzaria-plugin-store"
-            VALUE "LegalCopyright", "GPL-3.0"
-            // חייב להתאים לשם שאיתו ה-exe מופץ — ראו build.ps1.
-            VALUE "OriginalFilename", "\05d7\05e0\05d5\05ea \05d4\05ea\05d5\05e1\05e4\05d9\05dd.exe"
-            VALUE "ProductName", "\05d7\05e0\05d5\05ea \05d4\05ea\05d5\05e1\05e4\05d9\05dd \05e9\05dc \05d0\05d5\05e6\05e8\05d9\05d0"
+            // חייב להתאים ל-LICENSE שבשורש הריפו.
+            VALUE "LegalCopyright", "Copyright (c) 2026 Otzaria Project. Personal Use License 1.0"
+            // השם שאיתו הקובץ **מופץ** — נכס ה-release (ראו "Give the Windows
+            // asset an ASCII name" ב-ci.yml), ולא השם העברי שעל הדיסק. פער בין
+            // השדה הזה לשם שהקובץ מגיע איתו הוא סיגנל היוריסטי של אנטי-וירוס
+            // (בינארי ששינה את שמו) — ראו issue #3.
+            VALUE "OriginalFilename", "Otzaria-Plugin-Store.exe"
+            VALUE "ProductName", L"\x05d7\x05e0\x05d5\x05ea \x05d4\x05ea\x05d5\x05e1\x05e4\x05d9\x05dd \x05e9\x05dc \x05d0\x05d5\x05e6\x05e8\x05d9\x05d0"
             VALUE "ProductVersion", APP_VERSION_A
         END
     END
