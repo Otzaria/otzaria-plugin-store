@@ -563,15 +563,16 @@ export class PluginStoreCategory {
 
   constructor({slug, name, description = '', showOnHome = false,
                homeLimit = PluginStoreCategory.defaultHomeLimit,
-               pluginIds = []}) {
+               pluginIds = [], sortMode = 'manual'}) {
     this.slug = slug;
     this.name = name;
     this.description = description;
+    this.sortMode = sortMode === 'rating' ? 'rating' : 'manual';
     /** האם הקטגוריה מקבלת שורה משלה בדף הבית של החנות. */
     this.showOnHome = showOnHome;
     /** כמה תוספים מוצגים באותה שורה לפני "לכל הקטגוריה". */
     this.homeLimit = homeLimit;
-    /** מזהי התוספים המשובצים, **בסדר התצוגה הידני** שנקבע באתר. */
+    /** מזהי התוספים בסדר שחושב באתר, כולל מיון דירוג משוקלל. */
     this.pluginIds = pluginIds;
   }
 
@@ -593,6 +594,7 @@ export class PluginStoreCategory {
       name: str(json.name),
       description: str(json.description),
       showOnHome: json.showOnHome === true,
+      sortMode: json.sortMode,
       homeLimit: homeLimitOf(json.homeLimit),
       pluginIds: idsFrom(json.plugins),
     });
@@ -604,6 +606,7 @@ export class PluginStoreCategory {
       name: this.name,
       description: this.description,
       showOnHome: this.showOnHome,
+      sortMode: this.sortMode,
       homeLimit: this.homeLimit,
       plugins: this.pluginIds,
     };
@@ -619,6 +622,7 @@ export class PluginStoreCategory {
       name: typeof json.name === 'string' ? json.name : slug,
       description: str(json.description),
       showOnHome: json.showOnHome === true,
+      sortMode: json.sortMode,
       homeLimit: homeLimitOf(json.homeLimit),
       pluginIds: strList(json.plugins),
     });

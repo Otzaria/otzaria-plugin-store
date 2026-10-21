@@ -102,6 +102,14 @@ export function replace(parent, ...children) {
  * הציגה, ולא ציור מקורב.
  */
 export function icon(name, size = 20) {
+  const symbol = {
+    'puzzle-piece': 'extension', search: 'search', 'arrow-download': 'download',
+    'install-desktop': 'install_desktop', 'arrow-left': 'chevron_left',
+    'arrow-right': 'chevron_right', open: 'open_in_new', 'arrow-sync': 'sync',
+  }[name];
+  if (symbol) return h('span.material-symbol', {
+    'aria-hidden': 'true', style: {fontSize: `${size}px`}, text: symbol,
+  });
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.classList.add('icon');
   svg.setAttribute('width', String(size));

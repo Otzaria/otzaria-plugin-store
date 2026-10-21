@@ -1,19 +1,5 @@
-// מסכי החנות. פורט של `lib/src/screens/plugins/`.
-//
-// שלושת המסכים הם אלה של האתר: דף בית אצור (`/plugins`), "כל התוספים"
-// (`/plugins/all`) ודף קטגוריה (`/plugins/category/<slug>`), ומעליהם דף
-// פרטי התוסף.
-//
-// ── מה נעשה פשוט יותר, ולמה ──────────────────────────────────────────────────
-// בגרסת ה-Flutter רשת הכרטיסים הייתה `SliverGrid` בגובה **קבוע**
-// (`mainAxisExtent`), וזה גרר שרשרת שלמה של פשרות שמתועדות שם: תקציב
-// גובה של 352px שנמדד ביד, `_badgesHeight`/`_tagsHeight` קבועים,
-// ו-`clipBehavior: Clip.hardEdge` כדי שגלולה שגלשה תיחתך ולא תשפוך.
-//
-// ל-CSS Grid יש `auto-fill` + `minmax`, והשורה מקבלת את גובה הכרטיס
-// הגבוה בה מעצמה. לכן כל התקציבים האלה **אינם נחוצים כאן**, ואיתם נעלמת
-// גם החתיכה: שורת הגלולות פשוט נשברת, ושורת הכפתורים נדחקת לתחתית
-// הכרטיס ב-flex. זה אותו מראה, בלי המלכודת.
+// מסכי החנות מותאמים לעיצוב otzaria.org מאוקטובר 2026.
+// הנתונים, החיפוש, בחירת הגרסה וההתקנה נשארים מקומיים.
 
 import {S} from '../strings.js';
 import {InstallStatus} from '../store/models.js';
@@ -26,7 +12,6 @@ import {
   actionButton,
   appCard,
   emptyState,
-  eyebrow,
   fieldLabel,
   formatRating,
   iconButton,
@@ -35,7 +20,6 @@ import {
   panel,
   pluginBadge,
   pluginStatusLabel,
-  ratingBadge,
   ratingStars,
   statusChip,
   tagPill,
@@ -54,8 +38,8 @@ import {
 /** כמה נבחרים מוצגים לפני "הצג עוד נבחרים" — כמו באתר. */
 const FEATURED_PREVIEW_COUNT = 6;
 
-/** כמה תגיות מוצגות לפני "הצג עוד" — שתי שורות בקירוב. */
-const COLLAPSED_TAG_COUNT = 14;
+/** מספר התגיות הנפוצות לצד הבורר המלא, כמו באתר. */
+const COLLAPSED_TAG_COUNT = 8;
 
 /**
  * מצב תצוגה שאינו שייך לבקר — הוא מקומי למסך ומתאפס בניווט, בדיוק כמו
@@ -63,7 +47,6 @@ const COLLAPSED_TAG_COUNT = 14;
  */
 const local = {
   allFeaturedShown: false,
-  allTagsShown: false,
   busyPluginId: null,
   /** מה שהוקלד בתיבת החיפוש של דף הבית וטרם נשלח (ראו `hero`). */
   heroQuery: '',
@@ -118,7 +101,7 @@ function restoreFocus(host, snapshot) {
 export function renderStore(host, controller, {readOnly = false} = {}) {
   const focus = captureFocus(host);
   const hasNav = controller.categories.length > 0;
-  const wide = host.clientWidth >= 1080;
+  const wide = host.clientWidth >= 1024;
   const showSidebar = hasNav && wide;
 
   const detail = controller.openPlugin_;
@@ -128,7 +111,6 @@ export function renderStore(host, controller, {readOnly = false} = {}) {
     layout.append(detailHeader(controller, detail));
   } else {
     layout.append(syncHeader(controller, {readOnly}));
-    if (hasNav && !showSidebar) layout.append(categoryBar(controller));
   }
 
   const scroll = h('div.store__scroll');
@@ -168,6 +150,11 @@ export function renderStore(host, controller, {readOnly = false} = {}) {
       case Page.home: scroll.append(...homeSections(controller)); break;
       case Page.all: scroll.append(...allSections(controller)); break;
       case Page.category: scroll.append(...categorySections(controller)); break;
+    }
+    if (hasNav && !showSidebar) {
+      const nav = categoryBar(controller);
+      if (controller.view === Page.home) scroll.children[0]?.after(nav);
+      else scroll.prepend(nav);
     }
     // בתחתית **כל** המסכים: התוסף החסר עשוי להיות מאוצר בדף הבית או
     // משובץ בקטגוריה, ולא רק ברשימה המלאה.
@@ -288,13 +275,13 @@ function sidebar(controller) {
             (muted ? ' nav-item--muted' : ''),
         title: tooltip,
         onclick: onTap,
-      }, icon(iconName, 18),
+      },
          h('span.nav-item__label', {text: label}),
          count === null ? null : h('span.nav-item__count', {text: count}));
 
   return h('nav.sidebar',
       h('div.sidebar__title', {text: t.categoriesTitle}),
-      item({
+      controller.view === Page.home ? null : item({
         label: t.storeHomeItem,
         iconName: 'home',
         active: controller.view === Page.home,
@@ -377,8 +364,7 @@ function homeSections(controller) {
 
   if (featured.length > 0) {
     sections.push(h('div.store__pad.store__pad--section',
-        sectionHeader({eyebrowText: t.featuredEyebrow,
-                       title: t.featuredTitle})));
+        sectionHeader({title: t.featuredTitle})));
     sections.push(h('div.store__pad', grid(controller, visibleFeatured)));
     if (featured.length > FEATURED_PREVIEW_COUNT && !local.allFeaturedShown) {
       sections.push(h('div.store__pad.store__pad--center', actionButton({
@@ -421,39 +407,51 @@ function homeSections(controller) {
  */
 function hero(controller) {
   const t = S.plugins;
-  const input = h('input.hero__input', {
-    type: 'search',
-    placeholder: t.heroSearchHint,
-    'aria-label': t.filterSearchLabel,
-    // המלל אינו בבקר עד ה-Enter, ולכן הוא נשמר כאן: רינדור שמגיע באמצע
-    // ההקלדה (סריקת התקנה, שינוי גודל) בונה את השדה מחדש, ובלי זה מה
-    // שהוקלד היה נמחק. המיקוד עצמו משוחזר לפי `data-focus-key`.
-    value: local.heroQuery,
-    dataset: {focusKey: 'hero-search'},
+  const input = h('input.hero__input', {type: 'search', placeholder: t.heroSearchHint,
+    'aria-label': t.filterSearchLabel, role: 'combobox', 'aria-autocomplete': 'list',
+    'aria-expanded': 'false', 'aria-controls': 'store-suggestions',
+    value: local.heroQuery, dataset: {focusKey: 'hero-search'}});
+  const list = h('div.search-suggestions', {id: 'store-suggestions', role: 'listbox', hidden: true});
+  let matches = [], selected = -1;
+  const close = () => {list.hidden = true; input.setAttribute('aria-expanded', 'false');
+    input.removeAttribute('aria-activedescendant');};
+  const update = () => {
+    local.heroQuery = input.value; selected = -1;
+    matches = controller.plugins.filter(p => p.matchesQuery(input.value) &&
+      (!controller.hideInstalled || controller.statusOf(p) !== InstallStatus.upToDate)).slice(0, 6);
+    list.replaceChildren(...matches.map((p, i) => h('button.search-suggestions__item', {
+      id: 'store-suggestion-' + i, role: 'option', type: 'button', tabindex: '-1',
+      'aria-selected': 'false', onmousedown: e => e.preventDefault(),
+      onclick: () => controller.openPlugin(p.id)},
+      thumbnail({relativePath: p.imagePath, aspect: '1'}),
+      h('span', h('strong', {text: p.name}), h('small', {text: p.shortDescription})))));
+    list.hidden = !input.value.trim() || matches.length === 0;
+    input.setAttribute('aria-expanded', String(!list.hidden));
+  };
+  input.addEventListener('input', update);
+  input.addEventListener('focus', update);
+  input.addEventListener('blur', close);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {close(); return;}
+    if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !list.hidden) {
+      event.preventDefault();
+      selected = (selected + (event.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length;
+      [...list.children].forEach((el, i) => el.setAttribute('aria-selected', String(i === selected)));
+      input.setAttribute('aria-activedescendant', 'store-suggestion-' + selected);
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (selected >= 0 && !list.hidden) controller.openPlugin(matches[selected].id);
+      else controller.showAllPlugins(input.value);
+    }
   });
-  const submit = () => controller.showAllPlugins(input.value);
-  input.addEventListener('input', () => {
-    local.heroQuery = input.value;
-  });
-  input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') submit();
-  });
-
-  return appCard({
-    className: 'hero',
-    children: [
-      h('h1.hero__title', {text: controller.homeTitle}),
-      h('p.hero__subtitle', {text: controller.homeSubtitle}),
-      h('div.hero__search',
-        icon('search', 20),
-        input,
-        actionButton({text: t.heroSearchButton, variant: 'recommended',
-                      onPressed: submit})),
-    ],
-  });
+  return h('header.hero',
+    h('div.hero__heading', h('span.hero__icon', icon('puzzle-piece', 30)),
+      h('div', h('h1.hero__title', {text: controller.homeTitle}),
+        h('p.hero__subtitle', {text: controller.homeSubtitle}))),
+    h('div.hero__search', icon('search', 24), input, list));
 }
 
-/** "לא מצאתם את מה שחיפשתם?" בתחתית דף הבית. */
 function discoveryStrip(controller) {
   const t = S.plugins;
   return appCard({
@@ -470,11 +468,11 @@ function discoveryStrip(controller) {
   });
 }
 
-function sectionHeader({eyebrowText = null, title, description = null,
+function sectionHeader({title, description = null,
                         action = null}) {
   return h('div.section-header',
       h('div.section-header__text',
-        eyebrowText === null ? null : eyebrow(eyebrowText),
+
         h('h2.section-header__title', {text: title}),
         description ? h('p.section-header__desc', {text: description}) : null),
       action);
@@ -482,13 +480,20 @@ function sectionHeader({eyebrowText = null, title, description = null,
 
 // ── "כל התוספים" ─────────────────────────────────────────────────────────────
 
+function listingHeading(controller, title) {
+  return h('div.listing-heading',
+    h('nav.breadcrumb', {'aria-label': 'פירורי לחם'},
+      actionButton({text: S.plugins.storeHomeItem, variant: 'ghost',
+        onPressed: () => controller.showHome()}), icon('arrow-left', 16), h('span', {text: title})),
+    h('h1.hero__title', {text: title}));
+}
+
 function allSections(controller) {
   const t = S.plugins;
   const filtered = controller.filtered;
   const sections = [
-    h('div.store__pad', filtersBar(controller)),
+    h('div.store__pad', listingHeading(controller, t.allPluginsPage), filtersBar(controller)),
     h('div.store__pad.store__pad--section', sectionHeader({
-      eyebrowText: t.listEyebrow,
       title: t.listTitle,
       description: summaryText(controller, filtered),
     })),
@@ -522,6 +527,7 @@ function filtersBar(controller) {
     type: 'search',
     value: controller.search,
     placeholder: t.filterSearchHint,
+    'aria-label': t.filterSearchLabel,
     // כל תו מרנדר את המסך מחדש — המיקוד והסמן משוחזרים לפי המפתח הזה
     // (ראו `captureFocus`), אחרת ההקלדה נעצרת אחרי התו הראשון.
     dataset: {focusKey: 'filters-search'},
@@ -536,50 +542,34 @@ function filtersBar(controller) {
     [StatusFilter.experimental]: t.statusExperimental,
   };
   const select = h('select.select', {
+    'aria-label': t.filterStatusLabel,
     onchange: (event) => controller.setStatusFilter(event.target.value),
     dataset: {focusKey: 'filters-status'},
   }, Object.entries(statusLabels).map(([value, label]) => h('option', {
     value, text: label, selected: controller.statusFilter === value,
   })));
 
-  const tags = controller.allTags;
-  const hasMore = tags.length > COLLAPSED_TAG_COUNT;
-  const shown = local.allTagsShown || !hasMore
-      ? tags
-      : tags.slice(0, COLLAPSED_TAG_COUNT);
+  const counts = new Map(controller.allTags.map(tag => [tag,
+    controller.plugins.filter(p => p.tags.includes(tag) &&
+      (!controller.hideInstalled || controller.statusOf(p) !== InstallStatus.upToDate)).length]));
+  const tags = [...counts.keys()].filter(tag => counts.get(tag) > 0)
+    .sort((a, b) => counts.get(b) - counts.get(a) || a.localeCompare(b, 'he'));
+  const tagSelect = h('select.select.tags-select', {
+    'aria-label': t.filterTagsLabel, dataset: {focusKey: 'filters-tags'},
+    onchange: event => controller.setTagFilter(event.target.value || null)},
+    h('option', {value: '', text: t.filterAllTags, selected: controller.tagFilter === null}),
+    tags.map(tag => h('option', {value: tag, text: tag + ' (' + counts.get(tag) + ')',
+      selected: controller.tagFilter === tag})));
+  return h('div.filters',
+    h('div.filters__row',
+      h('div.filters__field.filters__field--grow', fieldLabel(t.filterSearchLabel),
+        h('div.text-field__wrap', icon('search', 20), search)),
+      h('div.filters__field.filters__field--status', fieldLabel(t.filterStatusLabel), select)),
+    tags.length === 0 ? null : h('div.filters__tags', fieldLabel(t.filterTagsLabel),
+      h('div.pill-row', tagSelect, tags.slice(0, COLLAPSED_TAG_COUNT).map(tag => tagPill({
+        label: tag + ' (' + counts.get(tag) + ')', active: controller.tagFilter === tag,
+        onTap: () => controller.setTagFilter(controller.tagFilter === tag ? null : tag)})))));
 
-  return appCard({
-    className: 'filters',
-    children: [
-      h('div.filters__row',
-        h('div.filters__field.filters__field--grow',
-          fieldLabel(t.filterSearchLabel),
-          h('div.text-field__wrap', icon('search', 18), search)),
-        h('div.filters__field.filters__field--status',
-          fieldLabel(t.filterStatusLabel), select)),
-      tags.length === 0 ? null : h('div.filters__tags',
-          fieldLabel(t.filterTagsLabel),
-          h('div.pill-row',
-            tagPill({
-              label: t.filterAllTags,
-              active: controller.tagFilter === null,
-              onTap: () => controller.setTagFilter(null),
-            }),
-            shown.map((tag) => tagPill({
-              label: tag,
-              active: controller.tagFilter === tag,
-              onTap: () => controller.setTagFilter(tag),
-            }))),
-          !hasMore ? null : actionButton({
-            text: local.allTagsShown ? t.showFewerTags : t.showMoreTags,
-            variant: 'ghost',
-            onPressed: () => {
-              local.allTagsShown = !local.allTagsShown;
-              controller.notifyRerender();
-            },
-          })),
-    ],
-  });
 }
 
 // ── דף קטגוריה ───────────────────────────────────────────────────────────────
@@ -590,15 +580,11 @@ function categorySections(controller) {
   if (category === null) return [];
 
   const plugins = controller.pluginsIn(category);
-  const sections = [h('div.store__pad.store__pad--section', sectionHeader({
-    eyebrowText: t.categoriesTitle,
-    title: category.name,
-    // המספר הוא של מה שמוצג, לא של מה שהאתר שיבץ: "6 תוספים בקטגוריה"
-    // מעל רשימה ריקה (המתג הסתיר את כולם) הוא בדיוק מה שאין לו הסבר.
-    description: category.description ||
-        (plugins.length === 1 ? t.categoryOnePlugin
-                              : t.categoryPluginCount(plugins.length)),
-  }))];
+  const sections = [h('div.store__pad.category-heading',
+    listingHeading(controller, category.name),
+    category.description ? h('p.section-header__desc', {text: category.description}) : null,
+    h('p.category-summary', {text: t.categoryPluginCount(plugins.length) +
+      (category.sortMode === 'rating' ? ' · מסודרים לפי דירוג המשתמשים' : '')}))];
 
   if (plugins.length === 0) {
     // הקטגוריה אינה בהכרח ריקה — ייתכן שהמתג "רק מה שלא מותקן" הסתיר
@@ -725,71 +711,37 @@ function storeCard(controller, plugin) {
   const busy = local.busyPluginId === plugin.id;
   const supportsInstall = target?.supportsDirectInstall ??
       plugin.supportsDirectInstall;
-  const updated = updatedOn(plugin);
-
-  const thumb = h('div.card__media',
-      thumbnail({relativePath: plugin.imagePath}),
-      plugin.isFeatured ? h('div.card__featured', pluginBadge({
-        label: t.badgeFeaturedShort,
-        iconName: 'star',
-        emphasized: true,
-      })) : null);
 
   return appCard({
     className: 'plugin-card',
     onTap: () => controller.openPlugin(plugin.id),
     children: [
-      thumb,
-      // ⚠️ הסדר כאן אינו שרירותי: שבב ההתקנה הוא מידע שאסור להיעלם,
-      // וגלולת הדירוג היא קישוט — ולכן היא האחרונה.
-      h('div.badge-row',
-        pluginBadge({label: pluginStatusLabel(target?.status ?? plugin.status),
-                     emphasized: true}),
-        // הגרסה שתותקן כאן, לא בהכרח האחרונה שפורסמה.
-        pluginBadge({label: t.pluginVersionBadge(controller.versionOf(plugin))}),
-        pluginBadge({label: String(plugin.downloadCount),
-                     iconName: 'arrow-download'}),
-        installChip({status, compact: true}),
-        // כמו באתר: תוסף שטרם דורג אינו מציג גלולת דירוג ריקה.
-        plugin.ratingCount > 0 ? ratingBadge(plugin) : null),
-      h('h3.plugin-card__name', {text: plugin.name}),
-      h('p.plugin-card__desc', {text: plugin.shortDescription}),
-      plugin.tags.length === 0 ? null : h('div.pill-row.pill-row--clamped',
-          plugin.tags.slice(0, 4).map((tag) => tagPill({label: tag}))),
-      h('div.plugin-card__spacer'),
+      h('div.plugin-card__heading',
+        thumbnail({relativePath: plugin.imagePath, aspect: '1'}),
+        h('div.plugin-card__identity',
+          h('h3.plugin-card__name', {text: plugin.name, dir: 'auto'}),
+          h('div.plugin-card__meta',
+            plugin.ratingCount > 0 ? h('span.plugin-card__rating',
+              icon('star-filled-16', 14), h('span', {text:
+                formatRating(plugin.ratingAvg) + ' (' + plugin.ratingCount + ')'})) : null,
+            h('span.plugin-card__downloads', {title: 'מספר הורדות'},
+              icon('arrow-download', 15), h('span', {text: plugin.downloadCount.toLocaleString('he-IL')})),
+            h('span.plugin-card__version', {text: t.pluginVersionBadge(controller.versionOf(plugin))}),
+            (target?.status ?? plugin.status) === 'stable' ? null :
+              h('span.plugin-card__status', {text: pluginStatusLabel(target?.status ?? plugin.status)})),
+          installChip({status, compact: true}))),
+      h('p.plugin-card__desc', {text: plugin.shortDescription, dir: 'auto'}),
       h('div.plugin-card__actions',
-        actionButton({
-          text: t.saveButton,
-          variant: 'neutral',
-          iconName: 'save',
-          loading: busy,
-          className: 'grow',
-          onPressed: controller.hasFileFor(plugin)
-              ? (event) => {
-                  event.stopPropagation();
-                  void saveCopy(controller, plugin);
-                }
-              : null,
-        }),
-        // בלי בילד תואם אין מה להתקין — הכפתור כבוי, והשבב למעלה אומר למה.
-        !supportsInstall ? null : actionButton({
-          text: t.installButton,
-          variant: 'recommended',
-          iconName: 'arrow-download',
-          loading: busy,
-          className: 'grow',
+        actionButton({text: t.saveButton, variant: 'neutral', iconName: 'arrow-download',
+          loading: busy, className: 'grow',
+          onPressed: controller.hasFileFor(plugin) ? (event) => {
+            event.stopPropagation(); void saveCopy(controller, plugin);
+          } : null}),
+        !supportsInstall ? null : actionButton({text: t.installButton,
+          variant: 'outlined', iconName: 'install-desktop', loading: busy, className: 'grow',
           onPressed: target === null ? null : (event) => {
-            event.stopPropagation();
-            void install(controller, plugin);
-          },
-        })),
-      h('hr.plugin-card__rule'),
-      h('div.plugin-card__footer',
-        h('span.plugin-card__link', {text: t.cardDetailsLink}),
-        // בלי תאריך אין שורה: "עודכן ב־" ואחריו כלום גרוע מלא לומר דבר.
-        updated === null ? null : h('span.plugin-card__date', {
-          text: t.cardUpdatedOn(updated),
-        })),
+            event.stopPropagation(); void install(controller, plugin);
+          }})),
     ],
   });
 }
@@ -818,39 +770,31 @@ function detailHeader(controller, plugin) {
 
 function detailBody(controller, plugin) {
   const t = S.plugins;
-  const panels = [heroPanel(controller, plugin)];
-
-  const info = infoPanel(controller, plugin);
-  const tags = plugin.tags.length === 0 ? null : panel({
-    title: t.tagsPanelTitle,
-    className: 'panel--tags',
-    children: [h('div.pill-row', plugin.tags.map((tag) => tagPill({
-      label: tag,
-      onTap: () => {
-        controller.setTagFilter(tag);
-        controller.showAllPlugins();
-      },
-    })))],
-  });
-  panels.push(tags === null ? info
-                            : h('div.detail__two-col', info, tags));
-
-  // גם בלי דירוגים הסעיף מוצג ואומר זאת — כמו באתר.
-  panels.push(panel({title: t.ratingPanelTitle,
-                     children: [ratingSummary(plugin)]}));
-
-  const shots = plugin.screenshotPaths;
-  if (shots.length > 0) {
-    panels.push(panel({
-      title: t.screenshotsPanelTitle,
-      children: [h('div.shots', shots.map((relative, index) => h(
-          'button.shots__item',
-          {type: 'button', onclick: () => showScreenshots({paths: shots,
-                                                           initialIndex: index})},
-          h('img', {src: assetUrl(relative), alt: '', loading: 'lazy'}))))],
-    }));
-  }
-
+  const target = controller.targetOf(plugin);
+  const facts = [
+    [t.ratingPanelTitle, plugin.ratingCount ? formatRating(plugin.ratingAvg) + ' (' + plugin.ratingCount + ')' : t.ratingEmpty],
+    ['הורדות', plugin.downloadCount.toLocaleString('he-IL')],
+    [t.infoVersion, controller.versionOf(plugin)],
+    [t.infoCompatibility, compatibilityValue(plugin, target)],
+    [t.infoAuthor, plugin.author || t.valueUnspecifiedMasculine],
+  ];
+  const panels = [heroPanel(controller, plugin), h('div.detail-facts', facts.map(([label, value]) =>
+    h('div.detail-fact', h('div.detail-fact__label', {text: label}),
+      h('div.detail-fact__value', {text: value}))))];
+  panels.push(infoPanel(controller, plugin));
+  if (plugin.tags.length) panels.push(panel({title: t.tagsPanelTitle,
+    children: [h('div.pill-row', plugin.tags.map(tag => tagPill({label: tag,
+      onTap: () => {controller.setTagFilter(tag); controller.showAllPlugins();}})))]}));
+  panels.push(panel({title: t.ratingPanelTitle, children: [ratingSummary(plugin)]}));
+  if (plugin.versions.length) panels.push(panel({title: 'היסטוריית גרסאות', children: [
+    h('table.version-history',
+      h('thead', h('tr', ['גרסה', 'סטטוס', 'תאריך', 'תאימות לאוצריא'].map(text => h('th', {text, scope: 'col'})))),
+      h('tbody', plugin.versions.map(v => h('tr',
+        h('td', h('bdi', {text: v.version}),
+          v.version === target?.version ? h('small', {text: ' · הגרסה המתאימה למחשב זה'}) : null),
+        h('td', {text: pluginStatusLabel(v.status)}),
+        h('td', {text: formatHebrewDate(v.releasedAt) || t.valueUnspecifiedMasculine}),
+        h('td', {text: compatibilityValue(plugin, v)}))))) ]}));
   return h('div.store__pad.detail', panels);
 }
 
@@ -858,62 +802,34 @@ function heroPanel(controller, plugin) {
   const t = S.plugins;
   const target = controller.targetOf(plugin);
   const busy = local.busyPluginId === plugin.id;
-  const supportsInstall = target?.supportsDirectInstall ??
-      plugin.supportsDirectInstall;
-
-  return appCard({
-    className: 'detail-hero',
-    children: [
-      h('div.detail-hero__media',
-        thumbnail({relativePath: plugin.imagePath, aspect: '4 / 3'})),
-      h('div.detail-hero__text',
-        h('h1.detail-hero__name', {text: plugin.name}),
-        h('p.detail-hero__desc', {text: plugin.description}),
-        h('div.badge-row',
-          pluginBadge({label: pluginStatusLabel(target?.status ?? plugin.status),
-                       emphasized: true}),
-          pluginBadge({label: t.pluginVersionBadge(
-              controller.versionOf(plugin))}),
-          pluginBadge({label: t.downloadsBadge(plugin.downloadCount),
-                       iconName: 'arrow-download'}),
-          // באתר הדירוג מופיע פעמיים בעמוד: כגלולה כאן, וכסעיף מלא למטה.
-          plugin.ratingCount > 0 ? ratingBadge(plugin) : null,
-          plugin.isFeatured ? pluginBadge({label: t.badgeFeatured,
-                                           iconName: 'star'}) : null,
-          installChip({
-            status: controller.statusOf(plugin),
-            installedVersion: controller.installedVersionOf(plugin),
-          })),
-        plugin.categorySlugs.length === 0 ? null : h('div.pill-row',
-            plugin.categorySlugs.map((slug) => tagPill({
-              label: controller.categoryName(slug),
-              onTap: () => controller.showCategory(slug),
-            }))),
-        h('div.detail-hero__actions',
-          !supportsInstall ? null : actionButton({
-            text: t.directInstallButton,
-            variant: 'recommended',
-            iconName: 'arrow-download',
-            loading: busy,
-            onPressed: target === null
-                ? null : () => void install(controller, plugin),
-          }),
-          actionButton({
-            text: t.saveButton,
-            variant: 'neutral',
-            iconName: 'save',
-            loading: busy,
-            onPressed: controller.hasFileFor(plugin)
-                ? () => void saveCopy(controller, plugin) : null,
-          }),
-          !plugin.homepage ? null : actionButton({
-            text: t.sourcePageButton,
-            variant: 'ghost',
-            iconName: 'open',
-            onPressed: () => void openHomepage(controller, plugin),
-          }))),
-    ],
-  });
+  const supportsInstall = target?.supportsDirectInstall ?? plugin.supportsDirectInstall;
+  const shots = plugin.screenshotPaths;
+  let shotIndex = 0;
+  const image = shots.length ? h('img.detail-preview__image', {src: assetUrl(shots[0]), alt: t.screenshotsPanelTitle}) : null;
+  const preview = !shots.length ? null : h('div.detail-preview',
+    h('button.detail-preview__zoom', {type: 'button', 'aria-label': t.screenshotsPanelTitle,
+      onclick: () => showScreenshots({paths: shots, initialIndex: shotIndex})}, image),
+    shots.length < 2 ? null : h('div.detail-preview__nav', shots.map((relative, index) =>
+      h('button', {type: 'button', 'aria-label': 'צילום מסך ' + (index + 1),
+        'aria-pressed': String(index === 0), onclick: event => {
+          shotIndex = index; image.src = assetUrl(relative);
+          [...event.currentTarget.parentElement.children].forEach((el, i) =>
+            el.setAttribute('aria-pressed', String(i === index)));
+        }}, h('img', {src: assetUrl(relative), alt: '', loading: 'lazy'})))));
+  return h('div.detail-hero',
+    h('div.detail-hero__text',
+      h('div.detail-hero__identity', thumbnail({relativePath: plugin.imagePath, aspect: '1'}),
+        h('div', h('h1.detail-hero__name', {text: plugin.name, dir: 'auto'}),
+          h('div.badge-row', pluginBadge({label: pluginStatusLabel(target?.status ?? plugin.status), emphasized: true}),
+            installChip({status: controller.statusOf(plugin), installedVersion: controller.installedVersionOf(plugin)})))),
+      h('p.detail-hero__desc', {text: plugin.shortDescription}),
+      h('div.detail-hero__actions',
+        actionButton({text: t.saveButton, variant: 'recommended', iconName: 'arrow-download', loading: busy,
+          onPressed: controller.hasFileFor(plugin) ? () => void saveCopy(controller, plugin) : null}),
+        !supportsInstall ? null : actionButton({text: t.directInstallButton, variant: 'outlined',
+          iconName: 'install-desktop', loading: busy, onPressed: target === null ? null : () => void install(controller, plugin)}),
+        !plugin.homepage ? null : actionButton({text: t.sourcePageButton, variant: 'ghost',
+          iconName: 'open', onPressed: () => void openHomepage(controller, plugin)}))), preview);
 }
 
 function infoPanel(controller, plugin) {
@@ -948,7 +864,7 @@ function infoPanel(controller, plugin) {
   return panel({
     title: t.infoPanelTitle,
     className: 'panel--info',
-    children: [h('div.info-grid', cells.map(infoCell))],
+    children: [h('p.detail-description', {text: plugin.description}), h('div.info-grid', cells.map(infoCell))],
   });
 }
 
@@ -1084,6 +1000,5 @@ async function openHomepage(controller, plugin) {
 /** מאפס את מצב התצוגה המקומי — נקרא בניווט. */
 export function resetLocalViewState() {
   local.allFeaturedShown = false;
-  local.allTagsShown = false;
   local.heroQuery = '';
 }

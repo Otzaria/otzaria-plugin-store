@@ -339,10 +339,12 @@ export class PluginMirrorSync {
    */
   async #categoryMembers(summary, syncedIds, previous, report) {
     let ids = summary.pluginIds;
+    let sortMode = summary.sortMode;
     try {
-      ids = PluginStoreCategory
-          .fromApi(await this.client.fetchCategory(summary.slug))
-          .pluginIds;
+      const category = PluginStoreCategory.fromApi(
+          await this.client.fetchCategory(summary.slug));
+      ids = category.pluginIds;
+      sortMode = category.sortMode;
     } catch (error) {
       report({
         phase: SyncPhase.warning,
@@ -350,12 +352,16 @@ export class PluginMirrorSync {
                                              describeError(error)),
       });
       const known = previous.categoryBySlug(summary.slug);
-      if (known !== null) ids = known.pluginIds;
+      if (known !== null) {
+        ids = known.pluginIds;
+        sortMode = known.sortMode;
+      }
     }
 
     // תוסף שאינו בקטלוג שירד עכשיו (הוסר מהחנות, או שהסנכרון לא הגיע
     // אליו) לא נספר ולא מוצג בקטגוריה.
     return summary.copyWith({
+      sortMode,
       pluginIds: ids.filter((id) => syncedIds.has(id)),
     });
   }

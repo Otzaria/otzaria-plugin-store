@@ -110,9 +110,10 @@ try {
     if (!summary.slug) continue;
     const page = await getJson(
         `/api/plugins/categories/${encodeURIComponent(summary.slug)}`);
-    const members = PluginStoreCategory.fromApi(page).pluginIds
+    const category = PluginStoreCategory.fromApi(page);
+    const members = category.pluginIds
         .filter((id) => ids.has(id));
-    categories.push(summary.copyWith({pluginIds: members}));
+    categories.push(summary.copyWith({pluginIds: members, sortMode: category.sortMode}));
   }
   console.log(`התקבלו ${categories.length} קטגוריות`);
 } catch (error) {

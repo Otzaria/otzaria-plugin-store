@@ -26,6 +26,7 @@ export function appCard({onTap = null, className = '', children = []}) {
     tabindex: '0',
     onclick: onTap,
     onkeydown: (event) => {
+      if (event.target !== event.currentTarget) return;
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         onTap();
@@ -151,6 +152,7 @@ export function tagPill({label, active = false, onTap = null,
         (onTap === null ? ' pill--static' : ''),
   };
   if (onTap !== null) {
+    props['aria-pressed'] = String(active);
     props.type = 'button';
     props.onclick = onTap;
   }

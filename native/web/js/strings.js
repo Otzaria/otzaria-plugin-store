@@ -74,7 +74,7 @@ export const S = Object.freeze({
     // דף הבית
     loadingCatalog: 'טוען את קטלוג התוספים...',
     catalogTitleFallback: 'חנות התוספים של אוצריא',
-    catalogSubtitleFallback: 'תוספים שמרחיבים את חוויית הלימוד באוצריא',
+    catalogSubtitleFallback: 'תוספים שמרחיבים את חוויית הלימוד באוצריא — מצא, הורד והתקן בלחיצה אחת',
     heroSearchHint: 'חפשו תוסף לפי שם, תיאור או נושא...',
     heroSearchButton: 'חיפוש',
     emptyStoreTitle: 'החנות בבנייה — אבל התוספים כבר כאן',
@@ -180,7 +180,7 @@ export const S = Object.freeze({
 
     // כפתורים
     saveButton: 'שמירה',
-    installButton: 'התקנה',
+    installButton: 'התקנה ישירה',
     directInstallButton: 'התקנה ישירה לאוצריא',
     sourcePageButton: 'עמוד המקור',
     cardDetailsLink: 'לפרטים מלאים',
