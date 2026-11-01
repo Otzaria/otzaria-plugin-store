@@ -406,42 +406,11 @@ export class StoreController {
     this.#notify();
   }
 
-  /**
-   * הגרסאות שההורדה וההצצה מסננות לפיהן — **מה שהריפו של אוצריא פרסם**,
-   * ולא מה שמותקן במחשב הזה.
-   *
-   * ⚠️ **למה לא הגרסה המקומית:** המראה נבנית במחשב מקוון ונצרכת במחשב
-   * אחר. סינון לפי המחשב המסנכרן פירושו כונן שנושא בילדים שאינם מתאימים
-   * למחשב היעד, ושם — בלי אינטרנט — אין דרך לתקן את זה. ראו
-   * `otzaria_release_client.js`.
-   *
-   * נשמר לכל אורך ההרצה, אבל **רק בהצלחה**: תשובה ריקה מפני שאין רשת
-   * אינה עובדה על הריפו, ואסור שתיתקע בזיכרון עד סוף ההרצה.
-   */
+  // כשל בבירור Latest עוצר סנכרון, כדי שלא יופצו בילדים ללא יעד תאימות.
   async #appVersions() {
     if (this.#targetVersions !== null) return this.#targetVersions;
-
-    let result;
-    try {
-      result = await this.releaseClient.fetchTargetVersions();
-    } catch (error) {
-      // לא שגיאת הרצה: בלי היעד יורד הבילד האחרון של כל תוסף, וזו בדיוק
-      // ההתנהגות שהייתה לפני שהתאימות נכנסה.
-      this.log('בירור גרסת אוצריא האחרונה לא הצליח ' +
-               `(${error?.message ?? error}) — יורד הבילד האחרון של כל תוסף`);
-      return [];
-    }
-
-    if (result.versions.length === 0) {
-      this.log('לא נמצאה אף גרסה של אוצריא בריפו — ' +
-               'יורד הבילד האחרון של כל תוסף');
-      return [];
-    }
-
-    this.log(result.latestIsPrerelease
-        ? `גרסאות היעד: ${result.latest} (טרם הוגדרה כיציבה) ` +
-          `ו-${result.latestStable}`
-        : `גרסת היעד: ${result.latest}`);
+    const result = await this.releaseClient.fetchTargetVersions();
+    this.log(`גרסת היעד: ${result.latest}`);
     this.#targetVersions = result.versions;
     return result.versions;
   }
