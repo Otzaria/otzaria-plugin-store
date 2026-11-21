@@ -72,6 +72,10 @@ Result OtzariaRegistryInstallDirs();
 // חופפים, בדיוק כמו `RunningOtzariaProbe` בגרסת ה-Flutter.
 Result FindRunningOtzaria();
 
+// `{versions: {id: version}}` מתוך `plugin_installation`
+// שב-`plugins_host.db` של אוצריא, לקריאה בלבד; `null` כשאין רישום קריא.
+Result ReadPluginRegistry(const std::wstring& db_path);
+
 // ── ערכת הנושא של המערכת ─────────────────────────────────────────────────────
 
 // `true` כשווינדוס במצב כהה עבור אפליקציות. החנות אינה נותנת לבחור

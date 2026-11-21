@@ -220,6 +220,7 @@ export const sys = {
   exeVersion: (path) => call('sys.exeVersion', path),
   registryDirs: () => call('sys.registryDirs'),
   runningOtzaria: () => call('sys.runningOtzaria'),
+  pluginRegistry: (dbPath) => call('sys.pluginRegistry', dbPath),
 };
 
 export const win = {

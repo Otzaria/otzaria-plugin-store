@@ -61,6 +61,7 @@ export class PluginsManager {
       fs: this.fs,
       env: this.env,
       otzariaLaunchPath: await this.otzariaLaunchPath(),
+      readRegistry: this.sys?.pluginRegistry,
     }).scan();
   }
 
