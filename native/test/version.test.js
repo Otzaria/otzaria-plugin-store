@@ -4,7 +4,37 @@
 import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import {comparePluginVersions} from '../web/js/util/version.js';
+import {isCompatibleWithApp} from '../web/js/store/compatibility.js';
+import {
+  comparePluginVersions,
+  releaseVersionFromExe,
+} from '../web/js/util/version.js';
+
+describe('releaseVersionFromExe', () => {
+  it('מפענח hotfix מקוד הגרסה, כמו appReleaseVersion של אוצריא', () => {
+    assert.equal(releaseVersionFromExe('0.9.98+99803'), '0.9.98.3');
+    assert.equal(releaseVersionFromExe('0.9.97+99702'), '0.9.97.2');
+    assert.equal(releaseVersionFromExe('v1.2.3+1020305'), '1.2.3.5');
+  });
+
+  it('בלי hotfix, או build שאינו קוד הגרסה — רק הליבה', () => {
+    assert.equal(releaseVersionFromExe('0.9.98+99800'), '0.9.98');
+    assert.equal(releaseVersionFromExe('0.9.98+801'), '0.9.98');
+    assert.equal(releaseVersionFromExe('0.9.98+99703'), '0.9.98');
+    assert.equal(releaseVersionFromExe('0.9.98'), '0.9.98');
+    assert.equal(releaseVersionFromExe('0.9.98.3'), '0.9.98.3');
+    assert.equal(releaseVersionFromExe('0.9.98-beta+99803'), '0.9.98-beta');
+    assert.equal(releaseVersionFromExe(null), null);
+  });
+
+  it('#302: אוצריא 0.9.98.3 מריצה תוסף שדורש 0.9.98.1', () => {
+    const entry = {compatibleWith: '0.9.98.1', maxAppVersion: null};
+    assert.equal(isCompatibleWithApp(entry, '0.9.98+99803'), false);
+    assert.equal(
+        isCompatibleWithApp(entry, releaseVersionFromExe('0.9.98+99803')),
+        true);
+  });
+});
 
 describe('comparePluginVersions', () => {
   it('משווה מקטע-מקטע', () => {
