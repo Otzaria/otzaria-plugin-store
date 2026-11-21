@@ -19,6 +19,8 @@
 //
 // כשל בזיהוי אינו שגיאת הרצה: הוא נרשם, והחנות ממשיכה עם "לא ידוע".
 
+import {releaseVersionFromExe} from '../util/version.js';
+
 /**
  * exe-ים שנשלחים **לצד** אפליקציית Flutter ואינם האפליקציה עצמה.
  *
@@ -205,7 +207,7 @@ export class OtzariaInstallProbe {
     try {
       const state = await this.#resolve();
       this.launchPath = state?.launchPath ?? null;
-      this.version = state?.version ?? null;
+      this.version = releaseVersionFromExe(state?.version);
       if (this.launchPath === null) {
         this.log('לא זוהתה התקנה של אוצריא במחשב הזה');
       } else {

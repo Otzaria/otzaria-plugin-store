@@ -45,6 +45,37 @@ export function comparePluginVersions(a, b) {
   return 0;
 }
 
+/**
+ * גרסת אוצריא כפי שאוצריא עצמה מחשבת אותה (`appReleaseVersion`): ה-exe
+ * נושא `0.9.98+99803`, וה-hotfix מקודד ב-build — `0.9.98.3` (#302).
+ *
+ * @param {string|null|undefined} raw
+ * @returns {string|null}
+ */
+export function releaseVersionFromExe(raw) {
+  if (raw === null || raw === undefined) return null;
+  let text = String(raw).trim();
+  if (text.startsWith('v') || text.startsWith('V')) text = text.slice(1);
+  const plus = text.indexOf('+');
+  if (plus < 0) return text;
+
+  const version = text.slice(0, plus);
+  const buildText = text.slice(plus + 1).trim();
+  const segments = version.split('.');
+  if (!/^\d+$/.test(buildText) || segments.length !== 3 ||
+      !segments.every((s) => /^\d{1,2}$/.test(s))) {
+    return version;
+  }
+  const build = Number.parseInt(buildText, 10);
+  const [major, minor, patch] = segments.map((s) => Number.parseInt(s, 10));
+  if (build < 10000 ||
+      Math.floor(build / 100) !== major * 10000 + minor * 100 + patch) {
+    return version;
+  }
+  const hotfix = build % 100;
+  return hotfix === 0 ? version : `${version}.${hotfix}`;
+}
+
 /** @returns {number[]} */
 function parts(version) {
   let text = String(version ?? '0').trim();
