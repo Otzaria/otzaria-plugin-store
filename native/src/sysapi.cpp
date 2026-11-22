@@ -440,6 +440,122 @@ Result FindRunningOtzaria() {
   }));
 }
 
+// ── רישום התוספים של אוצריא ─────────────────────────────────────────────────
+
+namespace {
+
+// winsqlite3.dll של ווינדוס, נטען בזמן ריצה: ה-exe לא גדל, ומחשב בלעדיו
+// נופל לסריקת התיקיות.
+struct WinSqlite {
+  using Open = int(WINAPI*)(const char*, void**, int, const char*);
+  using Close = int(WINAPI*)(void*);
+  using Busy = int(WINAPI*)(void*, int);
+  using Prepare = int(WINAPI*)(void*, const char*, int, void**, const char**);
+  using Step = int(WINAPI*)(void*);
+  using Finalize = int(WINAPI*)(void*);
+  using ColumnText = const unsigned char*(WINAPI*)(void*, int);
+  using ColumnType = int(WINAPI*)(void*, int);
+
+  Open open = nullptr;
+  Close close = nullptr;
+  Busy busy_timeout = nullptr;
+  Prepare prepare = nullptr;
+  Step step = nullptr;
+  Finalize finalize = nullptr;
+  ColumnText column_text = nullptr;
+  ColumnType column_type = nullptr;
+
+  bool Load() {
+    HMODULE module = LoadLibraryExW(L"winsqlite3.dll", nullptr,
+                                    LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (module == nullptr) return false;
+    open = reinterpret_cast<Open>(GetProcAddress(module, "sqlite3_open_v2"));
+    close = reinterpret_cast<Close>(GetProcAddress(module, "sqlite3_close"));
+    busy_timeout =
+        reinterpret_cast<Busy>(GetProcAddress(module, "sqlite3_busy_timeout"));
+    prepare =
+        reinterpret_cast<Prepare>(GetProcAddress(module, "sqlite3_prepare_v2"));
+    step = reinterpret_cast<Step>(GetProcAddress(module, "sqlite3_step"));
+    finalize =
+        reinterpret_cast<Finalize>(GetProcAddress(module, "sqlite3_finalize"));
+    column_text = reinterpret_cast<ColumnText>(
+        GetProcAddress(module, "sqlite3_column_text"));
+    column_type =
+        reinterpret_cast<ColumnType>(GetProcAddress(module, "sqlite3_column_type"));
+    return open && close && busy_timeout && prepare && step && finalize &&
+           column_text && column_type;
+  }
+};
+
+constexpr int kSqliteOk = 0;
+constexpr int kSqliteRow = 100;
+constexpr int kSqliteText = 3;
+constexpr int kSqliteDone = 101;
+constexpr int kSqliteOpenReadOnly = 0x00000001;
+
+std::string ColumnString(const WinSqlite& sql, void* stmt, int column) {
+  const unsigned char* text = sql.column_text(stmt, column);
+  return text == nullptr ? std::string() : reinterpret_cast<const char*>(text);
+}
+
+}  // namespace
+
+Result ReadPluginRegistry(const std::wstring& db_path) {
+  if (GetFileAttributesW(db_path.c_str()) == INVALID_FILE_ATTRIBUTES) {
+    return Result::Ok("null");
+  }
+  static WinSqlite sql;
+  static const bool loaded = sql.Load();
+  if (!loaded) return Result::Ok("null");
+
+  void* db = nullptr;
+  if (sql.open(Utf8(db_path).c_str(), &db, kSqliteOpenReadOnly, nullptr) !=
+      kSqliteOk) {
+    if (db != nullptr) sql.close(db);
+    return Result::Ok("null");
+  }
+  sql.busy_timeout(db, 2000);
+
+  bool has_table = false;
+  void* stmt = nullptr;
+  if (sql.prepare(db, "PRAGMA table_info(plugin_installation)", -1, &stmt,
+                  nullptr) == kSqliteOk) {
+    has_table = sql.step(stmt) == kSqliteRow;
+  }
+  sql.finalize(stmt);
+  stmt = nullptr;
+
+  std::string versions = "{";
+  bool complete = false;
+  if (has_table &&
+      sql.prepare(db, "SELECT plugin_id, version FROM plugin_installation", -1,
+                  &stmt, nullptr) == kSqliteOk) {
+    int code = kSqliteRow;
+    bool first = true;
+    while ((code = sql.step(stmt)) == kSqliteRow) {
+      // Like the launcher's reader: only TEXT ids and versions count.
+      if (sql.column_type(stmt, 0) != kSqliteText ||
+          sql.column_type(stmt, 1) != kSqliteText) {
+        continue;
+      }
+      const std::string id = ColumnString(sql, stmt, 0);
+      const std::string version = ColumnString(sql, stmt, 1);
+      if (id.empty() || version.empty()) continue;
+      if (!first) versions += ',';
+      first = false;
+      versions += JsonString(id) + ':' + JsonString(version);
+    }
+    complete = code == kSqliteDone;
+  }
+  versions += '}';
+  sql.finalize(stmt);
+  sql.close(db);
+
+  // רישום שנקרא חלקית אינו עדות — עדיף לסרוק תיקיות מאשר להסתיר מותקנים.
+  if (!complete) return Result::Ok("null");
+  return Result::Ok(JsonObject({{"versions", versions}}));
+}
+
 bool IsSystemDarkMode() {
   ScopedKey key;
   if (RegOpenKeyExW(HKEY_CURRENT_USER,

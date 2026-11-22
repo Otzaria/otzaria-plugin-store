@@ -319,6 +319,11 @@ void Bridge::HandleMessage(const std::wstring& message) {
     RunAsync(request_id, [] { return sysapi::FindRunningOtzaria(); });
     return;
   }
+  if (command == L"sys.pluginRegistry") {
+    const std::wstring path = Arg(fields, 0);
+    RunAsync(request_id, [path] { return sysapi::ReadPluginRegistry(path); });
+    return;
+  }
 
   // ── התוכנה עצמה ───────────────────────────────────────────────────────────
   if (command == L"app.info") {
